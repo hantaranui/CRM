@@ -11,7 +11,7 @@ const TABLES = {
   config: "CRM_Config"
 };
 
-const BUILD_VERSION = "crm-widget-no-demo-20260624-f";
+const BUILD_VERSION = "crm-widget-no-demo-20260624-h";
 
 const DEFAULT_STAGES = [
   { Nom: "Premier contact", Ordre: 1, Couleur: "#6366f1", Declenche_relance: false, Actif: true },
@@ -47,6 +47,21 @@ function roleChoices() {
   return roles.length ? roles : DEFAULT_REFERENT_ROLES.map((role) => role.Nom);
 }
 
+function label(value) {
+  const labels = {
+    "A relancer": "À relancer",
+    "A faire": "À faire",
+    "Contrat signe": "Contrat signé",
+    "Negociation": "Négociation",
+    "Telephone": "Téléphone",
+    "Reunion": "Réunion",
+    "Referent": "Référent",
+    "Referent principal": "Référent principal",
+    "Annule": "Annulé"
+  };
+  return labels[value] || value || "-";
+}
+
 let isGrist = false;
 let activeClientId = null;
 let activeFilter = "Tous";
@@ -70,6 +85,14 @@ const roleForm = document.querySelector("#roleForm");
 const environmentNotice = document.querySelector("#environmentNotice");
 const createClientPanel = document.querySelector("#createClientPanel");
 const createClientForm = document.querySelector("#createClientForm");
+const notePanel = document.querySelector("#notePanel");
+const noteForm = document.querySelector("#noteForm");
+const taskPanel = document.querySelector("#taskPanel");
+const taskForm = document.querySelector("#taskForm");
+const listTypeFilter = document.querySelector("#listTypeFilter");
+const listStatusFilter = document.querySelector("#listStatusFilter");
+const listPriorityFilter = document.querySelector("#listPriorityFilter");
+const listSort = document.querySelector("#listSort");
 
 function insideGrist() {
   try {
@@ -105,6 +128,16 @@ function toRows(tableData) {
 
 function nowSeconds() {
   return Math.floor(Date.now() / 1000);
+}
+
+function dateInputToSeconds(value) {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : Math.floor(date.getTime() / 1000);
+}
+
+function formatDateSeconds(value) {
+  return value ? new Date(value * 1000).toLocaleDateString("fr-FR") : "-";
 }
 
 async function safeFetchTable(tableName) {
@@ -150,7 +183,7 @@ async function seedIfEmpty(tableName, rows) {
 }
 
 async function ensureCrmTables() {
-  setNotice("Creation/verif des tables CRM_Etapes, CRM_Organisations, CRM_Referents...");
+  setNotice("Création/vérification des tables CRM_Étapes, CRM_Organisations, CRM_Référents...");
   await ensureTable(TABLES.stages, [
     { id: "Nom", type: "Text" },
     { id: "Ordre", type: "Int" },
@@ -245,6 +278,7 @@ async function ensureCrmTables() {
   await ensureColumn(TABLES.organisations, "Statut", { type: "Choice", widgetOptions: JSON.stringify({ choices: DEFAULT_STAGES.map((stage) => stage.Nom) }) });
   await ensureColumn(TABLES.organisations, "Priorite", { type: "Choice", widgetOptions: JSON.stringify({ choices: priorityChoices() }) });
   await ensureColumn(TABLES.referents, "Role", { type: "Choice", widgetOptions: JSON.stringify({ choices: DEFAULT_REFERENT_ROLES.map((role) => role.Nom) }) });
+  await ensureColumn(TABLES.tasks, "Priorite", { type: "Choice", widgetOptions: JSON.stringify({ choices: priorityChoices() }) });
   await modifyColumn(TABLES.organisations, "Statut", {
     type: "Choice",
     widgetOptions: JSON.stringify({ choices: DEFAULT_STAGES.map((stage) => stage.Nom) })
@@ -256,6 +290,10 @@ async function ensureCrmTables() {
   await modifyColumn(TABLES.referents, "Role", {
     type: "Choice",
     widgetOptions: JSON.stringify({ choices: DEFAULT_REFERENT_ROLES.map((role) => role.Nom) })
+  });
+  await modifyColumn(TABLES.tasks, "Priorite", {
+    type: "Choice",
+    widgetOptions: JSON.stringify({ choices: priorityChoices() })
   });
   await seedIfEmpty(TABLES.stages, DEFAULT_STAGES);
   await seedIfEmpty(TABLES.priorities, DEFAULT_PRIORITIES);
@@ -328,7 +366,8 @@ async function loadGristData() {
     email: client.Email_principal || "",
     phone: client.Telephone || "",
     website: client.Site_web || "",
-    nextAction: client.Prochaine_action ? new Date(client.Prochaine_action * 1000).toLocaleDateString("fr-FR") : "-"
+    nextActionRaw: client.Prochaine_action || null,
+    nextAction: formatDateSeconds(client.Prochaine_action)
   }));
 
   contacts = (await safeFetchTable(TABLES.contacts)).map((contact) => ({
@@ -342,19 +381,24 @@ async function loadGristData() {
   tasks = (await safeFetchTable(TABLES.tasks)).map((task) => ({
     id: task.id,
     organisationId: task.Organisation,
-    due: task.Echeance ? new Date(task.Echeance * 1000).toLocaleDateString("fr-FR") : "-",
+    dueRaw: task.Echeance || null,
+    due: formatDateSeconds(task.Echeance),
     label: task.Action || "",
-    status: task.Statut || "A faire"
+    status: task.Statut || "A faire",
+    priority: task.Priorite || "Moyenne"
   }));
 
-  interactions = (await safeFetchTable(TABLES.interactions)).map((event) => ({
-    id: event.id,
-    organisationId: event.Organisation,
-    date: event.Date ? new Date(event.Date * 1000).toLocaleDateString("fr-FR") : "-",
-    channel: event.Canal || "Note",
-    subject: event.Sujet || "",
-    notes: event.Compte_rendu || ""
-  }));
+  interactions = (await safeFetchTable(TABLES.interactions))
+    .map((event) => ({
+      id: event.id,
+      organisationId: event.Organisation,
+      dateRaw: event.Date || null,
+      date: formatDateSeconds(event.Date),
+      channel: event.Canal || "Note",
+      subject: event.Sujet || "",
+      notes: event.Compte_rendu || ""
+    }))
+    .sort((a, b) => (b.dateRaw || 0) - (a.dateRaw || 0));
 
 }
 
@@ -375,6 +419,38 @@ function filteredClients() {
   });
 }
 
+function listFilteredClients() {
+  const type = listTypeFilter.value;
+  const status = listStatusFilter.value;
+  const priority = listPriorityFilter.value;
+  const sort = listSort.value;
+  const filtered = clients.filter((client) => {
+    const matchesType = type === "Tous" || client.type === type;
+    const matchesStatus = status === "Tous" || client.status === status;
+    const matchesPriority = priority === "Tous" || client.priority === priority;
+    return matchesType && matchesStatus && matchesPriority;
+  });
+
+  return filtered.sort((a, b) => {
+    if (sort === "amount") return (b.amount || 0) - (a.amount || 0);
+    if (sort === "status") return `${a.status}`.localeCompare(`${b.status}`, "fr");
+    if (sort === "name") return `${a.name}`.localeCompare(`${b.name}`, "fr");
+    if (sort === "lastContact") return getLastContactRaw(b.id) - getLastContactRaw(a.id);
+    const aDate = a.nextActionRaw || Number.MAX_SAFE_INTEGER;
+    const bDate = b.nextActionRaw || Number.MAX_SAFE_INTEGER;
+    return aDate - bDate;
+  });
+}
+
+function getLastContactRaw(clientId) {
+  return interactions.find((event) => event.organisationId === clientId)?.dateRaw || 0;
+}
+
+function getLastContact(clientId) {
+  const date = getLastContactRaw(clientId);
+  return date ? formatDateSeconds(date) : "-";
+}
+
 function renderClientList() {
   const visibleClients = filteredClients();
   clientCount.textContent = visibleClients.length;
@@ -390,8 +466,9 @@ function renderClientList() {
     button.innerHTML = `
       <strong>${client.name || "Sans nom"}</strong>
       <span class="client-meta">
-        <span>${client.type}</span>
-        <span class="tag">${client.status}</span>
+        <span class="type-pill">${label(client.type)}</span>
+        <span class="tag">${label(client.status)}</span>
+        <span>${label(client.priority)}</span>
       </span>
     `;
     button.addEventListener("click", () => {
@@ -412,11 +489,11 @@ function renderDetails() {
   const clientTasks = tasks.filter((task) => task.organisationId === client.id && task.status !== "Fait");
   const clientEvents = interactions.filter((event) => event.organisationId === client.id);
 
-  document.querySelector("#clientType").textContent = client.type;
+  document.querySelector("#clientType").textContent = label(client.type);
   document.querySelector("#clientName").textContent = client.name || "Sans nom";
-  document.querySelector("#clientStatus").textContent = client.status;
+  document.querySelector("#clientStatus").textContent = label(client.status);
   document.querySelector("#clientStatus").dataset.status = client.status;
-  document.querySelector("#clientPriority").textContent = client.priority;
+  document.querySelector("#clientPriority").textContent = label(client.priority);
   document.querySelector("#clientOwner").textContent = client.owner || "-";
   document.querySelector("#lastContact").textContent = clientEvents[0]?.date || "-";
   document.querySelector("#nextAction").textContent = client.nextAction || "-";
@@ -426,16 +503,16 @@ function renderDetails() {
   document.querySelector("#clientWebsite").textContent = client.website || "-";
 
   document.querySelector("#taskList").innerHTML = clientTasks.map((task) => (
-    `<li><strong>${task.label}</strong><span>${task.due}</span></li>`
-  )).join("") || "<li><strong>Aucune tache ouverte</strong><span>-</span></li>";
+    `<li><strong>${task.label}</strong><span>${task.due} · ${label(task.priority)}</span></li>`
+  )).join("") || "<li><strong>Aucune tâche ouverte</strong><span>-</span></li>";
 
   document.querySelector("#contactList").innerHTML = clientContacts.map((contact) => (
-    `<li><strong>${contact.name}</strong><span>${contact.role}<br>${contact.email}</span></li>`
+    `<li><strong>${contact.name}</strong><span>${label(contact.role)}<br>${contact.email}</span></li>`
   )).join("") || "<li><strong>Aucun interlocuteur</strong><span>-</span></li>";
 
   document.querySelector("#timeline").innerHTML = clientEvents.map((event) => `
     <article class="event">
-      <div class="event-date">${event.date}<br>${event.channel}</div>
+      <div class="event-date">${event.date}<br>${label(event.channel)}</div>
       <div>
         <h4>${event.subject}</h4>
         <p>${event.notes}</p>
@@ -457,9 +534,9 @@ function renderEmptyDetails() {
   document.querySelector("#clientEmail").textContent = "-";
   document.querySelector("#clientPhone").textContent = "-";
   document.querySelector("#clientWebsite").textContent = "-";
-  document.querySelector("#taskList").innerHTML = "<li><strong>Aucune tache</strong><span>-</span></li>";
+  document.querySelector("#taskList").innerHTML = "<li><strong>Aucune tâche</strong><span>-</span></li>";
   document.querySelector("#contactList").innerHTML = "<li><strong>Aucun interlocuteur</strong><span>-</span></li>";
-  document.querySelector("#timeline").innerHTML = '<article class="event"><div class="event-date">-</div><div><h4>Aucune donnee CRM</h4><p>Les tables seront creees automatiquement dans Grist. Les fiches apparaissent quand CRM_Organisations contient des lignes.</p></div></article>';
+  document.querySelector("#timeline").innerHTML = '<article class="event"><div class="event-date">-</div><div><h4>Aucune donnée CRM</h4><p>Les tables seront créées automatiquement dans Grist. Les fiches apparaissent quand CRM_Organisations contient des lignes.</p></div></article>';
 }
 
 function renderStats() {
@@ -506,19 +583,38 @@ function renderPipeline() {
     column.className = "pipeline-column";
     column.style.borderTop = `4px solid ${stage.color}`;
     const stageClients = clients.filter((client) => client.status === stage.name);
-    column.innerHTML = `<h4>${stage.name} (${stageClients.length})</h4>`;
+    column.innerHTML = `<h4>${label(stage.name)} (${stageClients.length})</h4>`;
     stageClients.forEach((client) => {
-      const card = document.createElement("button");
+      const card = document.createElement("article");
       card.className = `pipeline-card${client.id === activeClientId ? " active" : ""}`;
-      card.type = "button";
-      card.innerHTML = `<strong>${client.name || "Sans nom"}</strong><span>${client.nextAction || "-"}</span>`;
+      card.tabIndex = 0;
+      card.innerHTML = `
+        <strong>${client.name || "Sans nom"}</strong>
+        <span>${label(client.type)} - ${label(client.priority)}</span>
+        <span>${client.nextAction || "-"}</span>
+        <select class="kanban-status" data-client-id="${client.id}" aria-label="Changer le statut">
+          ${stageNames().map((status) => `<option value="${status}"${status === client.status ? " selected" : ""}>${label(status)}</option>`).join("")}
+        </select>
+      `;
       card.addEventListener("click", () => {
         activeClientId = client.id;
-        render();
+        switchView("crm");
+      });
+      card.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          activeClientId = client.id;
+          switchView("crm");
+        }
       });
       column.append(card);
     });
     pipeline.append(column);
+  });
+  document.querySelectorAll(".kanban-status").forEach((select) => {
+    select.addEventListener("click", (event) => event.stopPropagation());
+    select.addEventListener("change", async () => {
+      await updateClientStatus(Number(select.dataset.clientId), select.value);
+    });
   });
 }
 
@@ -526,16 +622,16 @@ function renderSettings() {
   document.querySelector("#stageSettingsList").innerHTML = pipelineStages.map((stage, index) => `
     <li>
       <strong><span class="stage-dot" style="background:${stage.color}"></span>${stage.name}</strong>
-      <span>Ordre ${index + 1}${stage.followup ? " - declenche une relance" : ""}</span>
+      <span>Ordre ${index + 1}${stage.followup ? " - déclenche une relance" : ""}</span>
     </li>
   `).join("");
 
   document.querySelector("#memberSettingsList").innerHTML = teamMembers.map((member) => `
-    <li><strong>${member.name}</strong><span>${member.role || "Referent"}<br>${member.email || "-"}</span></li>
-  `).join("") || '<li><strong>Aucun referent</strong><span>Dans Grist, ajoutez un membre depuis ce formulaire pour remplir CRM_Referents.</span></li>';
+    <li><strong>${member.name}</strong><span>${label(member.role || "Referent")}<br>${member.email || "-"}</span></li>
+  `).join("") || '<li><strong>Aucun référent</strong><span>Dans Grist, ajoutez un membre depuis ce formulaire pour remplir CRM_Referents.</span></li>';
 
   document.querySelector("#roleSettingsList").innerHTML = roleChoices().map((role) => `
-    <li><strong>${role}</strong><span>Choix disponible dans CRM_Referents.Role</span></li>
+    <li><strong>${label(role)}</strong><span>Choix disponible dans CRM_Referents.Role</span></li>
   `).join("");
 }
 
@@ -543,15 +639,44 @@ function renderCreateOptions() {
   const statusSelect = document.querySelector("#newClientStatus");
   const ownerSelect = document.querySelector("#newClientOwner");
   const memberRoleSelect = document.querySelector("#memberRole");
+  const selectedListStatus = listStatusFilter.value || "Tous";
   statusSelect.innerHTML = pipelineStages.map((stage) => (
-    `<option value="${stage.name}">${stage.name}</option>`
+    `<option value="${stage.name}">${label(stage.name)}</option>`
   )).join("");
   ownerSelect.innerHTML = '<option value="">Non assigne</option>' + teamMembers.map((member) => (
-    `<option value="${member.name}">${member.name}</option>`
+    `<option value="${member.name}">${label(member.name)}</option>`
   )).join("");
   memberRoleSelect.innerHTML = roleChoices().map((role) => (
-    `<option value="${role}">${role}</option>`
+    `<option value="${role}">${label(role)}</option>`
   )).join("");
+  listStatusFilter.innerHTML = '<option value="Tous">Tous</option>' + pipelineStages.map((stage) => (
+    `<option value="${stage.name}">${label(stage.name)}</option>`
+  )).join("");
+  listStatusFilter.value = stageNames().includes(selectedListStatus) ? selectedListStatus : "Tous";
+}
+
+function renderListView() {
+  const rows = listFilteredClients();
+  document.querySelector("#listCount").textContent = `${rows.length} fiche${rows.length > 1 ? "s" : ""}`;
+  document.querySelector("#crmListBody").innerHTML = rows.map((client) => `
+    <tr data-client-id="${client.id}">
+      <td><button class="table-link" type="button" data-client-id="${client.id}">${client.name || "Sans nom"}</button></td>
+      <td><span class="type-pill">${label(client.type)}</span></td>
+      <td><span class="tag">${label(client.status)}</span></td>
+      <td>${label(client.priority)}</td>
+      <td>${client.owner || "-"}</td>
+      <td>${getLastContact(client.id)}</td>
+      <td>${client.nextAction || "-"}</td>
+      <td>${formatCurrency(client.amount)}</td>
+    </tr>
+  `).join("") || '<tr><td colspan="8">Aucune fiche ne correspond aux filtres.</td></tr>';
+
+  document.querySelectorAll(".table-link").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeClientId = Number(button.dataset.clientId);
+      switchView("crm");
+    });
+  });
 }
 
 function renderDashboard() {
@@ -572,7 +697,7 @@ function renderDashboard() {
     return `
       <div class="stage-bar-row">
         <div class="stage-bar-meta">
-          <span>${stage.name}</span>
+      <span>${label(stage.name)}</span>
           <strong>${count}</strong>
         </div>
         <div class="stage-bar-track">
@@ -585,20 +710,20 @@ function renderDashboard() {
   document.querySelector("#dashboardTeam").innerHTML = teamMembers.slice(0, 5).map((member) => `
     <div class="dashboard-list-item">
       <strong>${member.name}</strong>
-      <span>${member.role || "Referent"}${member.email ? " - " + member.email : ""}</span>
+      <span>${label(member.role || "Referent")}${member.email ? " - " + member.email : ""}</span>
     </div>
-  `).join("") || '<div class="dashboard-list-item"><strong>Aucun referent</strong><span>Ajoutez l equipe dans Parametres</span></div>';
+  `).join("") || '<div class="dashboard-list-item"><strong>Aucun référent</strong><span>Ajoutez l’équipe dans Paramètres</span></div>';
 
   const alerts = [];
-  if (metrics.followups) alerts.push(`${metrics.followups} fiche(s) a relancer`);
-  if (metrics.openTasks) alerts.push(`${metrics.openTasks} tache(s) ouverte(s)`);
+  if (metrics.followups) alerts.push(`${metrics.followups} fiche(s) à relancer`);
+  if (metrics.openTasks) alerts.push(`${metrics.openTasks} tâche(s) ouverte(s)`);
   if (!metrics.team) alerts.push("Aucun referent actif");
   if (!alerts.length) alerts.push("Aucune alerte prioritaire");
 
   document.querySelector("#dashboardAlerts").innerHTML = alerts.map((alert) => `
     <div class="dashboard-list-item">
       <strong>${alert}</strong>
-      <span>Mis a jour depuis les tables CRM</span>
+      <span>Mis à jour depuis les tables CRM</span>
     </div>
   `).join("");
 }
@@ -624,6 +749,14 @@ function render() {
   renderSettings();
   renderDashboard();
   renderCreateOptions();
+  renderListView();
+}
+
+function switchView(view) {
+  viewTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === view));
+  document.querySelectorAll(".view-panel").forEach((panel) => panel.classList.remove("active"));
+  document.querySelector(`#${view}View`).classList.add("active");
+  render();
 }
 
 async function reloadAndRender() {
@@ -676,6 +809,44 @@ async function addInteraction(channel, subject, notes) {
   render();
 }
 
+async function createTaskForCurrentClient(record) {
+  const client = currentClient();
+  if (!client) return;
+  if (isGrist) {
+    await grist.docApi.applyUserActions([[
+      "AddRecord",
+      TABLES.tasks,
+      null,
+      { Organisation: client.id, ...record }
+    ]]);
+    await reloadAndRender();
+    return;
+  }
+  setNotice(`Aperçu hors Grist (${BUILD_VERSION}) : la tâche n'a pas été créée. Ajoutez ce widget dans Grist pour écrire dans CRM_Taches.`, "warning");
+}
+
+async function updateClientStatus(clientId, status) {
+  const client = clients.find((item) => item.id === clientId);
+  if (!client || client.status === status) return;
+  if (isGrist) {
+    await grist.docApi.applyUserActions([
+      ["UpdateRecord", TABLES.organisations, clientId, { Statut: status }],
+      ["AddRecord", TABLES.interactions, null, {
+        Organisation: clientId,
+        Date: nowSeconds(),
+        Canal: "Statut",
+        Sujet: `Statut passé à ${label(status)}`,
+        Compte_rendu: "Changement de statut depuis le Kanban CRM.",
+        Auteur: client.owner || ""
+      }]
+    ]);
+    activeClientId = clientId;
+    await reloadAndRender();
+    return;
+  }
+  setNotice(`Aperçu hors Grist (${BUILD_VERSION}) : le statut n'a pas été modifié. Ajoutez ce widget dans Grist pour écrire dans CRM_Organisations.`, "warning");
+}
+
 searchInput.addEventListener("input", renderClientList);
 
 filters.forEach((button) => {
@@ -687,52 +858,14 @@ filters.forEach((button) => {
   });
 });
 
-document.querySelector("#addDemoInteraction").addEventListener("click", () => {
-  addInteraction("Note", "Nouvelle note", "Note ajoutee depuis le widget CRM.");
+document.querySelector("#toggleNotePanel").addEventListener("click", () => {
+  notePanel.hidden = !notePanel.hidden;
+  taskPanel.hidden = true;
 });
 
-document.querySelector("#advanceStatus").addEventListener("click", async () => {
-  const client = currentClient();
-  if (!client) return;
-  const flow = stageNames();
-  const currentIndex = flow.indexOf(client.status);
-  const nextIndex = currentIndex >= 0 ? Math.min(currentIndex + 1, flow.length - 1) : 0;
-  const nextStatus = flow[nextIndex];
-  if (isGrist) {
-    await grist.docApi.applyUserActions([
-      ["UpdateRecord", TABLES.organisations, client.id, { Statut: nextStatus }],
-      ["AddRecord", TABLES.interactions, null, {
-        Organisation: client.id,
-        Date: nowSeconds(),
-        Canal: "Statut",
-        Sujet: `Statut passe a ${nextStatus}`,
-        Compte_rendu: "Changement de statut effectue depuis le widget CRM.",
-        Auteur: client.owner || ""
-      }]
-    ]);
-    await reloadAndRender();
-    return;
-  }
-  client.status = nextStatus;
-  interactions.unshift({ id: Date.now(), organisationId: client.id, date: "Aujourd'hui", channel: "Statut", subject: `Statut passe a ${nextStatus}`, notes: "Changement de statut effectue depuis le widget CRM." });
-  render();
-});
-
-document.querySelector("#createTask").addEventListener("click", async () => {
-  const client = currentClient();
-  if (!client) return;
-  if (isGrist) {
-    await grist.docApi.applyUserActions([[
-      "AddRecord",
-      TABLES.tasks,
-      null,
-      { Organisation: client.id, Action: "Nouvelle relance a planifier", Canal: "Email", Statut: "A faire", Priorite: client.priority, Assigne_a: client.owner }
-    ]]);
-    await reloadAndRender();
-    return;
-  }
-  tasks.unshift({ id: Date.now(), organisationId: client.id, due: "-", label: "Nouvelle relance a planifier", status: "A faire" });
-  render();
+document.querySelector("#toggleTaskPanel").addEventListener("click", () => {
+  taskPanel.hidden = !taskPanel.hidden;
+  notePanel.hidden = true;
 });
 
 document.querySelector("#toggleCreateClient").addEventListener("click", () => {
@@ -764,9 +897,9 @@ createClientForm.addEventListener("submit", async (event) => {
     activeClientId = newId;
     activeFilter = "Tous";
     filters.forEach((filter) => filter.classList.toggle("active", filter.dataset.filter === "Tous"));
-    setNotice(`Fiche creee dans CRM_Organisations (${BUILD_VERSION}) : ${record.Nom}.`);
+    setNotice(`Fiche créée dans CRM_Organisations (${BUILD_VERSION}) : ${record.Nom}.`);
   } else {
-    setNotice(`Apercu hors Grist (${BUILD_VERSION}) : la fiche n'a pas ete creee. Ajoutez ce widget dans Grist pour ecrire dans CRM_Organisations.`, "warning");
+    setNotice(`Aperçu hors Grist (${BUILD_VERSION}) : la fiche n'a pas été créée. Ajoutez ce widget dans Grist pour écrire dans CRM_Organisations.`, "warning");
   }
 
   createClientForm.reset();
@@ -776,11 +909,40 @@ createClientForm.addEventListener("submit", async (event) => {
 
 viewTabs.forEach((button) => {
   button.addEventListener("click", () => {
-    viewTabs.forEach((tab) => tab.classList.remove("active"));
-    button.classList.add("active");
-    document.querySelectorAll(".view-panel").forEach((panel) => panel.classList.remove("active"));
-    document.querySelector(`#${button.dataset.view}View`).classList.add("active");
+    switchView(button.dataset.view);
   });
+});
+
+[listTypeFilter, listStatusFilter, listPriorityFilter, listSort].forEach((input) => {
+  input.addEventListener("change", renderListView);
+});
+
+noteForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const subject = document.querySelector("#noteSubject").value.trim();
+  const body = document.querySelector("#noteBody").value.trim();
+  const channel = document.querySelector("#noteChannel").value;
+  if (!subject) return;
+  await addInteraction(channel, subject, body);
+  noteForm.reset();
+  notePanel.hidden = true;
+});
+
+taskForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const action = document.querySelector("#taskAction").value.trim();
+  if (!action) return;
+  const dueDate = dateInputToSeconds(document.querySelector("#taskDueDate").value);
+  await createTaskForCurrentClient({
+    Action: action,
+    Canal: document.querySelector("#taskChannel").value,
+    Echeance: dueDate,
+    Statut: "A faire",
+    Priorite: document.querySelector("#taskPriority").value,
+    Assigne_a: currentClient()?.owner || ""
+  });
+  taskForm.reset();
+  taskPanel.hidden = true;
 });
 
 stageForm.addEventListener("submit", async (event) => {
@@ -822,7 +984,7 @@ roleForm.addEventListener("submit", async (event) => {
     ]]);
     await reloadAndRender();
   } else {
-    setNotice(`Apercu hors Grist (${BUILD_VERSION}) : le role n'a pas ete cree. Ajoutez ce widget dans Grist pour ecrire dans CRM_Roles_Referents.`, "warning");
+    setNotice(`Aperçu hors Grist (${BUILD_VERSION}) : le rôle n'a pas été créé. Ajoutez ce widget dans Grist pour écrire dans CRM_Roles_Referents.`, "warning");
   }
   input.value = "";
 });
@@ -845,7 +1007,7 @@ memberForm.addEventListener("submit", async (event) => {
     ]]);
     await reloadAndRender();
   } else {
-    setNotice(`Apercu hors Grist (${BUILD_VERSION}) : le referent n'a pas ete cree. Ajoutez ce widget dans Grist pour ecrire dans CRM_Referents.`, "warning");
+    setNotice(`Aperçu hors Grist (${BUILD_VERSION}) : le référent n'a pas été créé. Ajoutez ce widget dans Grist pour écrire dans CRM_Referents.`, "warning");
   }
   memberForm.reset();
   renderCreateOptions();
@@ -854,20 +1016,20 @@ memberForm.addEventListener("submit", async (event) => {
 async function init() {
   isGrist = insideGrist() && !!window.grist;
   if (isGrist) {
-    setNotice(`Connexion a Grist (${BUILD_VERSION})...`);
+    setNotice(`Connexion à Grist (${BUILD_VERSION})...`);
     await grist.ready({ requiredAccess: "full" });
     if (!grist.docApi) {
       throw new Error("API document Grist indisponible apres grist.ready(). Verifiez le niveau d'acces du widget.");
     }
-    setNotice(`Connecte a Grist (${BUILD_VERSION}) : aucune donnee client fictive n'est injectee.`);
+    setNotice(`Connecté à Grist (${BUILD_VERSION}) : aucune donnée client fictive n'est injectée.`);
     await ensureCrmTables();
-    setNotice(`Tables CRM verifiees (${BUILD_VERSION}). Chargement des donnees...`);
+    setNotice(`Tables CRM vérifiées (${BUILD_VERSION}). Chargement des données...`);
     await loadGristData();
     await syncChoiceColumns();
     attachGristLiveReload();
-    setNotice(`Connecte a Grist (${BUILD_VERSION}) : ${clients.length} fiche(s) dans CRM_Organisations.`);
+    setNotice(`Connecté à Grist (${BUILD_VERSION}) : ${clients.length} fiche(s) dans CRM_Organisations.`);
   } else {
-    setNotice(`Apercu hors Grist (${BUILD_VERSION}) : aucune table n'est creee ici. Ajoutez cette URL comme widget Custom dans Grist avec Full document access.`, "warning");
+    setNotice(`Aperçu hors Grist (${BUILD_VERSION}) : aucune table n'est créée ici. Ajoutez cette URL comme widget Custom dans Grist avec Full document access.`, "warning");
     loadLocalEmptyState();
   }
   render();

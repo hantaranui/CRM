@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <title>CRM</title>
     <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-    <link rel="stylesheet" href="styles.css?v=no-demo-20260624-f">
+    <link rel="stylesheet" href="styles.css?v=no-demo-20260624-h">
   </head>
   <body>
     <main class="crm-shell">
@@ -27,8 +27,8 @@
 
         <div class="filters" aria-label="Filtres">
           <button class="filter active" data-filter="Tous" type="button">Tous</button>
-          <button class="filter" data-filter="A relancer" type="button">A relancer</button>
-          <button class="filter" data-filter="Contrat signe" type="button">Signes</button>
+          <button class="filter" data-filter="A relancer" type="button">À relancer</button>
+          <button class="filter" data-filter="Contrat signe" type="button">Signés</button>
         </div>
 
         <div class="client-list" id="clientList"></div>
@@ -37,8 +37,10 @@
       <section class="detail" aria-label="Fiche client">
         <nav class="view-tabs" aria-label="Navigation CRM">
           <button class="view-tab active" data-view="crm" type="button">CRM</button>
+          <button class="view-tab" data-view="list" type="button">Liste</button>
+          <button class="view-tab" data-view="kanban" type="button">Kanban</button>
           <button class="view-tab" data-view="dashboard" type="button">Dashboard</button>
-          <button class="view-tab" data-view="settings" type="button">Parametres</button>
+          <button class="view-tab" data-view="settings" type="button">Paramètres</button>
         </nav>
 
         <div class="environment-notice" id="environmentNotice" hidden></div>
@@ -54,9 +56,8 @@
 
         <div class="actions" aria-label="Actions rapides">
           <button class="primary-button" id="toggleCreateClient" type="button">Nouvelle fiche</button>
-          <button class="primary-button" id="addDemoInteraction" type="button">Ajouter une note</button>
-          <button class="ghost-button" id="advanceStatus" type="button">Avancer le statut</button>
-          <button class="ghost-button" id="createTask" type="button">Creer une tache</button>
+          <button class="ghost-button" id="toggleNotePanel" type="button">Ajouter une note</button>
+          <button class="ghost-button" id="toggleTaskPanel" type="button">Créer une tâche</button>
         </div>
 
         <section class="panel create-panel" id="createClientPanel" hidden>
@@ -82,7 +83,7 @@
               <select id="newClientStatus"></select>
             </label>
             <label>
-              <span>Priorite</span>
+              <span>Priorité</span>
               <select id="newClientPriority">
                 <option>Moyenne</option>
                 <option>Haute</option>
@@ -90,7 +91,7 @@
               </select>
             </label>
             <label>
-              <span>Referent</span>
+              <span>Référent</span>
               <select id="newClientOwner"></select>
             </label>
             <label>
@@ -98,7 +99,7 @@
               <input id="newClientEmail" type="email" placeholder="contact@example.com">
             </label>
             <label>
-              <span>Telephone</span>
+              <span>Téléphone</span>
               <input id="newClientPhone" type="text" placeholder="+33 ...">
             </label>
             <label>
@@ -109,7 +110,68 @@
               <span>Montant</span>
               <input id="newClientAmount" type="number" min="0" step="100" placeholder="0">
             </label>
-            <button class="primary-button" type="submit">Creer la fiche</button>
+            <button class="primary-button" type="submit">Créer la fiche</button>
+          </form>
+        </section>
+
+        <section class="panel create-panel" id="notePanel" hidden>
+          <div class="panel-title">
+            <h3>Ajouter une note</h3>
+          </div>
+          <form class="create-form compact-form" id="noteForm">
+            <label>
+              <span>Canal</span>
+              <select id="noteChannel">
+                <option>Note</option>
+                <option>Email</option>
+                <option value="Telephone">Téléphone</option>
+                <option value="Reunion">Réunion</option>
+              </select>
+            </label>
+            <label>
+              <span>Sujet *</span>
+              <input id="noteSubject" type="text" placeholder="Ex. Appel de qualification">
+            </label>
+            <label class="form-wide">
+              <span>Commentaire</span>
+              <textarea id="noteBody" rows="3" placeholder="Compte rendu, point important, suite à donner"></textarea>
+            </label>
+            <button class="primary-button" type="submit">Enregistrer la note</button>
+          </form>
+        </section>
+
+        <section class="panel create-panel" id="taskPanel" hidden>
+          <div class="panel-title">
+              <h3>Créer une tâche</h3>
+          </div>
+          <form class="create-form compact-form" id="taskForm">
+            <label class="form-wide">
+              <span>Action *</span>
+              <input id="taskAction" type="text" placeholder="Ex. Relancer pour valider le devis">
+            </label>
+            <label>
+              <span>Canal</span>
+              <select id="taskChannel">
+                <option>Email</option>
+                <option value="Telephone">Téléphone</option>
+                <option>Message</option>
+                <option value="Reunion">Réunion</option>
+                <option>Interne</option>
+              </select>
+            </label>
+            <label>
+              <span>Échéance</span>
+              <input id="taskDueDate" type="date">
+            </label>
+            <label>
+              <span>Priorité</span>
+              <select id="taskPriority">
+                <option>Moyenne</option>
+                <option>Haute</option>
+                <option>Basse</option>
+              </select>
+            </label>
+            <button class="primary-button" type="submit">Créer la tâche</button>
           </form>
         </section>
 
@@ -119,7 +181,7 @@
             <strong id="statProspects">0</strong>
           </div>
           <div>
-            <span>A relancer</span>
+            <span>À relancer</span>
             <strong id="statFollowups">0</strong>
           </div>
           <div>
@@ -134,7 +196,7 @@
 
         <div class="summary-grid">
           <div class="summary-item">
-            <span>Priorite</span>
+            <span>Priorité</span>
             <strong id="clientPriority">-</strong>
           </div>
           <div class="summary-item">
@@ -158,7 +220,7 @@
         <div class="content-grid">
           <section class="panel">
             <div class="panel-title">
-              <h3>Coordonnees</h3>
+              <h3>Coordonnées</h3>
             </div>
             <dl class="fields">
               <div>
@@ -166,7 +228,7 @@
                 <dd id="clientEmail">-</dd>
               </div>
               <div>
-                <dt>Telephone</dt>
+                <dt>Téléphone</dt>
                 <dd id="clientPhone">-</dd>
               </div>
               <div>
@@ -178,7 +240,7 @@
 
           <section class="panel">
             <div class="panel-title">
-              <h3>Taches ouvertes</h3>
+              <h3>Tâches ouvertes</h3>
             </div>
             <ul class="tasks" id="taskList"></ul>
           </section>
@@ -191,19 +253,90 @@
           </section>
         </div>
 
-        <section class="panel pipeline-panel">
-          <div class="panel-title">
-            <h3>Pipeline</h3>
-          </div>
-          <div class="pipeline" id="pipeline"></div>
-        </section>
-
         <section class="panel timeline-panel">
           <div class="panel-title">
             <h3>Historique</h3>
           </div>
           <div class="timeline" id="timeline"></div>
         </section>
+        </div>
+
+        <div class="view-panel" id="listView">
+          <div class="detail-header">
+            <div>
+              <p class="eyebrow">Toutes les fiches</p>
+              <h2>Liste CRM</h2>
+            </div>
+            <span class="status" id="listCount">0 fiche</span>
+          </div>
+
+          <section class="panel list-panel">
+            <div class="list-toolbar">
+              <label>
+                <span>Type</span>
+                <select id="listTypeFilter">
+                  <option value="Tous">Tous</option>
+                  <option value="Prospect">Prospects</option>
+                  <option value="Client">Clients</option>
+                  <option value="Ancien client">Anciens clients</option>
+                  <option value="Partenaire">Partenaires</option>
+                </select>
+              </label>
+              <label>
+                <span>Statut</span>
+                <select id="listStatusFilter"></select>
+              </label>
+              <label>
+                <span>Priorité</span>
+                <select id="listPriorityFilter">
+                  <option value="Tous">Toutes</option>
+                  <option value="Haute">Haute</option>
+                  <option value="Moyenne">Moyenne</option>
+                  <option value="Basse">Basse</option>
+                </select>
+              </label>
+              <label>
+                <span>Tri</span>
+                <select id="listSort">
+                  <option value="nextAction">Prochaine action</option>
+                  <option value="lastContact">Dernier contact</option>
+                  <option value="name">Nom</option>
+                  <option value="amount">Montant</option>
+                  <option value="status">Statut</option>
+                </select>
+              </label>
+            </div>
+            <div class="crm-table-wrap">
+              <table class="crm-table">
+                <thead>
+                  <tr>
+                    <th>Nom</th>
+                    <th>Type</th>
+                    <th>Statut</th>
+                    <th>Priorité</th>
+                    <th>Référent</th>
+                    <th>Dernier contact</th>
+                    <th>Prochaine action</th>
+                    <th>Montant</th>
+                  </tr>
+                </thead>
+                <tbody id="crmListBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div class="view-panel" id="kanbanView">
+          <div class="detail-header">
+            <div>
+              <p class="eyebrow">Pipeline</p>
+              <h2>Kanban CRM</h2>
+            </div>
+            <span class="status">CRM_Étapes</span>
+          </div>
+          <section class="panel pipeline-panel">
+            <div class="pipeline" id="pipeline"></div>
+          </section>
         </div>
 
         <div class="view-panel" id="dashboardView">
@@ -229,7 +362,7 @@
               <strong id="dashClients">0</strong>
             </div>
             <div class="dashboard-card">
-              <span>A relancer</span>
+              <span>À relancer</span>
               <strong id="dashFollowups">0</strong>
             </div>
             <div class="dashboard-card">
@@ -241,7 +374,7 @@
               <strong id="dashRevenue">0 EUR</strong>
             </div>
             <div class="dashboard-card">
-              <span>Taches ouvertes</span>
+              <span>Tâches ouvertes</span>
               <strong id="dashOpenTasks">0</strong>
             </div>
             <div class="dashboard-card">
@@ -278,20 +411,20 @@
           <div class="detail-header">
             <div>
               <p class="eyebrow">Configuration</p>
-              <h2>Parametres</h2>
+              <h2>Paramètres</h2>
             </div>
-            <span class="status">CRM_Etapes</span>
+            <span class="status">CRM_Étapes</span>
           </div>
 
           <div class="settings-grid">
             <section class="panel">
               <div class="panel-title">
-                <h3>Etapes Kanban</h3>
+                <h3>Étapes Kanban</h3>
               </div>
               <form class="settings-form" id="stageForm">
                 <label>
-                  <span>Nom de l'etape</span>
-                  <input id="stageName" type="text" placeholder="Ex. Devis envoye">
+                  <span>Nom de l'étape</span>
+                  <input id="stageName" type="text" placeholder="Ex. Devis envoyé">
                 </label>
                 <label>
                   <span>Couleur</span>
@@ -299,15 +432,15 @@
                 </label>
                 <label class="checkbox-row">
                   <input id="stageFollowup" type="checkbox">
-                  <span>Cette etape declenche une relance</span>
+                  <span>Cette étape déclenche une relance</span>
                 </label>
-                <button class="primary-button" type="submit">Ajouter l'etape</button>
+                <button class="primary-button" type="submit">Ajouter l'étape</button>
               </form>
             </section>
 
             <section class="panel">
               <div class="panel-title">
-                <h3>Etapes actives</h3>
+                <h3>Étapes actives</h3>
               </div>
               <ul class="settings-list" id="stageSettingsList"></ul>
             </section>
@@ -317,9 +450,9 @@
                 <h3>Tables pilotees</h3>
               </div>
               <ul class="settings-list">
-                <li><strong>CRM_Etapes</strong><span>Colonnes du Kanban</span></li>
-                <li><strong>CRM_Priorites</strong><span>Niveaux basse, moyenne, haute</span></li>
-                <li><strong>CRM_Referents</strong><span>Responsables et personnes de l'equipe</span></li>
+                <li><strong>CRM_Étapes</strong><span>Colonnes du Kanban</span></li>
+                <li><strong>CRM_Priorités</strong><span>Niveaux basse, moyenne, haute</span></li>
+                <li><strong>CRM_Référents</strong><span>Responsables et personnes de l'équipe</span></li>
                 <li><strong>CRM_Config</strong><span>Mapping des tables et colonnes</span></li>
               </ul>
             </section>
@@ -341,27 +474,27 @@
                   <span>Role</span>
                   <select id="memberRole"></select>
                 </label>
-                <button class="primary-button" type="submit">Ajouter a l'equipe</button>
+                <button class="primary-button" type="submit">Ajouter à l'équipe</button>
               </form>
             </section>
 
             <section class="panel">
               <div class="panel-title">
-                <h3>Roles d'equipe</h3>
+                <h3>Rôles d'équipe</h3>
               </div>
               <form class="settings-form" id="roleForm">
                 <label>
-                  <span>Nouveau role</span>
+                  <span>Nouveau rôle</span>
                   <input id="roleName" type="text" placeholder="Ex. Direction, SAV, Partenaire">
                 </label>
-                <button class="primary-button" type="submit">Ajouter le role</button>
+                <button class="primary-button" type="submit">Ajouter le rôle</button>
               </form>
               <ul class="settings-list" id="roleSettingsList"></ul>
             </section>
 
             <section class="panel">
               <div class="panel-title">
-                <h3>Referents actifs</h3>
+                <h3>Référents actifs</h3>
               </div>
               <ul class="settings-list" id="memberSettingsList"></ul>
             </section>
@@ -370,6 +503,6 @@
       </section>
     </main>
 
-    <script src="widget.js?v=no-demo-20260624-f"></script>
+    <script src="widget.js?v=no-demo-20260624-h"></script>
   </body>
 </html>
