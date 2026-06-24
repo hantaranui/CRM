@@ -231,6 +231,24 @@ h3 {
   font-weight: 700;
 }
 
+.environment-notice[data-type="info"] {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.environment-notice[data-type="warning"] {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.environment-notice[data-type="error"] {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
 .empty-state {
   border: 1px dashed var(--line);
   border-radius: 8px;
@@ -254,6 +272,35 @@ h3 {
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 20px;
+}
+
+.create-panel {
+  margin-bottom: 18px;
+}
+
+.create-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.create-form label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.create-form input,
+.create-form select {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0 12px;
 }
 
 .stats-strip {
@@ -641,6 +688,7 @@ dd {
   .content-grid,
   .summary-grid,
   .stats-strip,
+  .create-form,
   .dashboard-grid,
   .dashboard-layout,
   .settings-grid,

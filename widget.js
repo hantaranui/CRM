@@ -10,6 +10,8 @@ const TABLES = {
   config: "CRM_Config"
 };
 
+const BUILD_VERSION = "crm-widget-no-demo-20260624-c";
+
 const DEFAULT_STAGES = [
   { Nom: "Premier contact", Ordre: 1, Couleur: "#6366f1", Declenche_relance: false, Actif: true },
   { Nom: "Negociation", Ordre: 2, Couleur: "#3b82f6", Declenche_relance: false, Actif: true },
@@ -23,6 +25,14 @@ const DEFAULT_PRIORITIES = [
   { Nom: "Moyenne", Ordre: 2, Couleur: "#6366f1" },
   { Nom: "Haute", Ordre: 3, Couleur: "#ef4444" }
 ];
+
+function stageChoices() {
+  return pipelineStages.length ? stageNames() : DEFAULT_STAGES.map((stage) => stage.Nom);
+}
+
+function priorityChoices() {
+  return DEFAULT_PRIORITIES.map((priority) => priority.Nom);
+}
 
 let isGrist = false;
 let activeClientId = null;
@@ -42,6 +52,8 @@ const viewTabs = document.querySelectorAll(".view-tab");
 const stageForm = document.querySelector("#stageForm");
 const memberForm = document.querySelector("#memberForm");
 const environmentNotice = document.querySelector("#environmentNotice");
+const createClientPanel = document.querySelector("#createClientPanel");
+const createClientForm = document.querySelector("#createClientForm");
 
 function insideGrist() {
   try {
@@ -98,6 +110,14 @@ async function ensureColumn(tableName, columnId, spec) {
   }
 }
 
+async function modifyColumn(tableName, columnId, spec) {
+  try {
+    await grist.docApi.applyUserActions([["ModifyColumn", tableName, columnId, spec]]);
+  } catch (error) {
+    console.warn("Modification colonne ignoree", tableName, columnId, error.message);
+  }
+}
+
 async function seedIfEmpty(tableName, rows) {
   const existing = await safeFetchTable(tableName);
   if (existing.length || !rows.length) return;
@@ -107,6 +127,7 @@ async function seedIfEmpty(tableName, rows) {
 }
 
 async function ensureCrmTables() {
+  setNotice("Creation/verif des tables CRM_Etapes, CRM_Organisations, CRM_Referents...");
   await ensureTable(TABLES.stages, [
     { id: "Nom", type: "Text" },
     { id: "Ordre", type: "Int" },
@@ -131,8 +152,8 @@ async function ensureCrmTables() {
   await ensureTable(TABLES.organisations, [
     { id: "Nom", type: "Text" },
     { id: "Typologie", type: "Choice", widgetOptions: JSON.stringify({ choices: ["Prospect", "Client", "Ancien client", "Partenaire"] }) },
-    { id: "Statut", type: "Text" },
-    { id: "Priorite", type: "Text" },
+    { id: "Statut", type: "Choice", widgetOptions: JSON.stringify({ choices: DEFAULT_STAGES.map((stage) => stage.Nom) }) },
+    { id: "Priorite", type: "Choice", widgetOptions: JSON.stringify({ choices: priorityChoices() }) },
     { id: "Referent", type: "Text" },
     { id: "Email_principal", type: "Text" },
     { id: "Telephone", type: "Text" },
@@ -192,11 +213,27 @@ async function ensureCrmTables() {
   ]);
 
   await ensureColumn(TABLES.organisations, "Montant", { type: "Numeric" });
+  await ensureColumn(TABLES.organisations, "Statut", { type: "Choice", widgetOptions: JSON.stringify({ choices: DEFAULT_STAGES.map((stage) => stage.Nom) }) });
+  await ensureColumn(TABLES.organisations, "Priorite", { type: "Choice", widgetOptions: JSON.stringify({ choices: priorityChoices() }) });
+  await modifyColumn(TABLES.organisations, "Statut", {
+    type: "Choice",
+    widgetOptions: JSON.stringify({ choices: DEFAULT_STAGES.map((stage) => stage.Nom) })
+  });
+  await modifyColumn(TABLES.organisations, "Priorite", {
+    type: "Choice",
+    widgetOptions: JSON.stringify({ choices: priorityChoices() })
+  });
   await seedIfEmpty(TABLES.stages, DEFAULT_STAGES);
   await seedIfEmpty(TABLES.priorities, DEFAULT_PRIORITIES);
   await seedIfEmpty(TABLES.referents, [
     { Nom: "Referent principal", Email: "", Role: "Responsable CRM", Actif: true }
   ]);
+}
+
+function setNotice(message, type = "info") {
+  environmentNotice.hidden = false;
+  environmentNotice.textContent = message;
+  environmentNotice.dataset.type = type;
 }
 
 function loadLocalEmptyState() {
@@ -453,6 +490,17 @@ function renderSettings() {
   `).join("") || '<li><strong>Aucun referent</strong><span>Dans Grist, ajoutez un membre depuis ce formulaire pour remplir CRM_Referents.</span></li>';
 }
 
+function renderCreateOptions() {
+  const statusSelect = document.querySelector("#newClientStatus");
+  const ownerSelect = document.querySelector("#newClientOwner");
+  statusSelect.innerHTML = pipelineStages.map((stage) => (
+    `<option value="${stage.name}">${stage.name}</option>`
+  )).join("");
+  ownerSelect.innerHTML = '<option value="">Non assigne</option>' + teamMembers.map((member) => (
+    `<option value="${member.name}">${member.name}</option>`
+  )).join("");
+}
+
 function renderDashboard() {
   const metrics = getMetrics();
   document.querySelector("#dashTotal").textContent = metrics.total;
@@ -522,11 +570,24 @@ function render() {
   renderPipeline();
   renderSettings();
   renderDashboard();
+  renderCreateOptions();
 }
 
 async function reloadAndRender() {
   if (isGrist) await loadGristData();
+  if (isGrist) await syncChoiceColumns();
   render();
+}
+
+async function syncChoiceColumns() {
+  await modifyColumn(TABLES.organisations, "Statut", {
+    type: "Choice",
+    widgetOptions: JSON.stringify({ choices: stageChoices() })
+  });
+  await modifyColumn(TABLES.organisations, "Priorite", {
+    type: "Choice",
+    widgetOptions: JSON.stringify({ choices: priorityChoices() })
+  });
 }
 
 async function addInteraction(channel, subject, notes) {
@@ -605,6 +666,42 @@ document.querySelector("#createTask").addEventListener("click", async () => {
   render();
 });
 
+document.querySelector("#toggleCreateClient").addEventListener("click", () => {
+  createClientPanel.hidden = !createClientPanel.hidden;
+});
+
+createClientForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const name = document.querySelector("#newClientName").value.trim();
+  if (!name) return;
+
+  const record = {
+    Nom: name,
+    Typologie: document.querySelector("#newClientType").value,
+    Statut: document.querySelector("#newClientStatus").value || pipelineStages[0]?.name || "Premier contact",
+    Priorite: document.querySelector("#newClientPriority").value,
+    Referent: document.querySelector("#newClientOwner").value,
+    Email_principal: document.querySelector("#newClientEmail").value.trim(),
+    Telephone: document.querySelector("#newClientPhone").value.trim(),
+    Site_web: document.querySelector("#newClientWebsite").value.trim(),
+    Montant: Number(document.querySelector("#newClientAmount").value || 0)
+  };
+
+  if (isGrist) {
+    const result = await grist.docApi.applyUserActions([["AddRecord", TABLES.organisations, null, record]]);
+    await loadGristData();
+    const newId = result?.retValues?.[0] || clients[clients.length - 1]?.id || null;
+    activeClientId = newId;
+    setNotice(`Fiche creee dans CRM_Organisations (${BUILD_VERSION}) : ${record.Nom}.`);
+  } else {
+    setNotice(`Apercu hors Grist (${BUILD_VERSION}) : la fiche n'a pas ete creee. Ajoutez ce widget dans Grist pour ecrire dans CRM_Organisations.`, "warning");
+  }
+
+  createClientForm.reset();
+  createClientPanel.hidden = true;
+  render();
+});
+
 viewTabs.forEach((button) => {
   button.addEventListener("click", () => {
     viewTabs.forEach((tab) => tab.classList.remove("active"));
@@ -665,19 +762,21 @@ memberForm.addEventListener("submit", async (event) => {
 });
 
 async function init() {
-  isGrist = insideGrist() && window.grist && grist.docApi;
+  isGrist = insideGrist() && !!window.grist;
   if (isGrist) {
-    environmentNotice.hidden = false;
-    environmentNotice.textContent = "Connecte a Grist : les tables CRM_* sont verifiees et creees automatiquement si besoin.";
+    setNotice(`Connexion a Grist (${BUILD_VERSION})...`);
     await grist.ready({ requiredAccess: "full" });
-    await ensureCrmTables();
-    await loadGristData();
-    if (typeof grist.onRecords === "function") {
-      grist.onRecords(() => reloadAndRender());
+    if (!grist.docApi) {
+      throw new Error("API document Grist indisponible apres grist.ready(). Verifiez le niveau d'acces du widget.");
     }
+    setNotice(`Connecte a Grist (${BUILD_VERSION}) : aucune donnee client fictive n'est injectee.`);
+    await ensureCrmTables();
+    setNotice(`Tables CRM verifiees (${BUILD_VERSION}). Chargement des donnees...`);
+    await loadGristData();
+    await syncChoiceColumns();
+    setNotice(`Connecte a Grist (${BUILD_VERSION}) : ${clients.length} fiche(s) dans CRM_Organisations.`);
   } else {
-    environmentNotice.hidden = false;
-    environmentNotice.textContent = "Apercu hors Grist : aucune table n'est creee ici. Ajoutez cette URL comme widget Custom dans Grist avec Full document access.";
+    setNotice(`Apercu hors Grist (${BUILD_VERSION}) : aucune table n'est creee ici. Ajoutez cette URL comme widget Custom dans Grist avec Full document access.`, "warning");
     loadLocalEmptyState();
   }
   render();
@@ -685,8 +784,7 @@ async function init() {
 
 init().catch((error) => {
   console.error(error);
-  environmentNotice.hidden = false;
-  environmentNotice.textContent = "Le widget n'a pas pu se connecter a Grist. Verifiez que l'URL est ajoutee comme widget Custom avec Full document access.";
+  setNotice(`Erreur d'initialisation Grist (${BUILD_VERSION}) : ${error.message}`, "error");
   loadLocalEmptyState();
   render();
 });

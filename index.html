@@ -3,9 +3,12 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>CRM</title>
     <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=no-demo-20260624-c">
   </head>
   <body>
     <main class="crm-shell">
@@ -50,10 +53,65 @@
         </div>
 
         <div class="actions" aria-label="Actions rapides">
+          <button class="primary-button" id="toggleCreateClient" type="button">Nouvelle fiche</button>
           <button class="primary-button" id="addDemoInteraction" type="button">Ajouter une note</button>
           <button class="ghost-button" id="advanceStatus" type="button">Avancer le statut</button>
           <button class="ghost-button" id="createTask" type="button">Creer une tache</button>
         </div>
+
+        <section class="panel create-panel" id="createClientPanel" hidden>
+          <div class="panel-title">
+            <h3>Nouvelle fiche CRM</h3>
+          </div>
+          <form class="create-form" id="createClientForm">
+            <label>
+              <span>Nom *</span>
+              <input id="newClientName" type="text" placeholder="Nom du client ou prospect">
+            </label>
+            <label>
+              <span>Typologie</span>
+              <select id="newClientType">
+                <option>Prospect</option>
+                <option>Client</option>
+                <option>Ancien client</option>
+                <option>Partenaire</option>
+              </select>
+            </label>
+            <label>
+              <span>Statut</span>
+              <select id="newClientStatus"></select>
+            </label>
+            <label>
+              <span>Priorite</span>
+              <select id="newClientPriority">
+                <option>Moyenne</option>
+                <option>Haute</option>
+                <option>Basse</option>
+              </select>
+            </label>
+            <label>
+              <span>Referent</span>
+              <select id="newClientOwner"></select>
+            </label>
+            <label>
+              <span>Email</span>
+              <input id="newClientEmail" type="email" placeholder="contact@example.com">
+            </label>
+            <label>
+              <span>Telephone</span>
+              <input id="newClientPhone" type="text" placeholder="+33 ...">
+            </label>
+            <label>
+              <span>Site web</span>
+              <input id="newClientWebsite" type="text" placeholder="https://...">
+            </label>
+            <label>
+              <span>Montant</span>
+              <input id="newClientAmount" type="number" min="0" step="100" placeholder="0">
+            </label>
+            <button class="primary-button" type="submit">Creer la fiche</button>
+          </form>
+        </section>
 
         <section class="stats-strip" aria-label="Statistiques CRM">
           <div>
@@ -298,6 +356,6 @@
       </section>
     </main>
 
-    <script src="widget.js"></script>
+    <script src="widget.js?v=no-demo-20260624-c"></script>
   </body>
 </html>
