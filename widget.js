@@ -41,6 +41,7 @@ const filters = document.querySelectorAll(".filter");
 const viewTabs = document.querySelectorAll(".view-tab");
 const stageForm = document.querySelector("#stageForm");
 const memberForm = document.querySelector("#memberForm");
+const environmentNotice = document.querySelector("#environmentNotice");
 
 function insideGrist() {
   try {
@@ -198,7 +199,7 @@ async function ensureCrmTables() {
   ]);
 }
 
-function loadMockData() {
+function loadLocalEmptyState() {
   pipelineStages = DEFAULT_STAGES.map((stage, index) => ({
     id: index + 1,
     name: stage.Nom,
@@ -206,51 +207,11 @@ function loadMockData() {
     followup: stage.Declenche_relance,
     active: stage.Actif
   }));
-  teamMembers = [
-    { id: 1, name: "Lalaina", email: "lalaina@example.com", role: "Responsable CRM", active: true },
-    { id: 2, name: "Said Hamadou", email: "said@example.com", role: "Referent technique", active: true }
-  ];
-  clients = [
-    {
-      id: 1,
-      name: "Atelier Martin",
-      type: "Prospect",
-      status: "A relancer",
-      priority: "Haute",
-      owner: "Lalaina",
-      amount: 3000,
-      email: "contact@atelier-martin.example",
-      phone: "+33 1 23 45 67 89",
-      website: "atelier-martin.example",
-      nextAction: "30/06/2026"
-    },
-    {
-      id: 2,
-      name: "Maison Rivage",
-      type: "Client",
-      status: "Contrat signe",
-      priority: "Moyenne",
-      owner: "Lalaina",
-      amount: 12000,
-      email: "bonjour@maison-rivage.example",
-      phone: "+33 6 12 34 56 78",
-      website: "maison-rivage.example",
-      nextAction: "25/07/2026"
-    }
-  ];
-  contacts = [
-    { id: 1, organisationId: 1, name: "Camille Durand", role: "Direction", email: "camille@atelier-martin.example" },
-    { id: 2, organisationId: 1, name: "Noe Lambert", role: "Production", email: "noe@atelier-martin.example" },
-    { id: 3, organisationId: 2, name: "Sarah Benali", role: "Responsable projet", email: "sarah@maison-rivage.example" }
-  ];
-  tasks = [
-    { id: 1, organisationId: 1, due: "30/06/2026", label: "Envoyer la proposition detaillee", status: "A faire" },
-    { id: 2, organisationId: 2, due: "25/07/2026", label: "Preparer le renouvellement", status: "A faire" }
-  ];
-  interactions = [
-    { id: 1, organisationId: 1, date: "22/06/2026", channel: "Email", subject: "Demande de devis", notes: "Envoyer une proposition detaillee cette semaine." },
-    { id: 2, organisationId: 2, date: "18/06/2026", channel: "Reunion", subject: "Point mensuel", notes: "Client satisfait. Prevoir renouvellement fin juillet." }
-  ];
+  teamMembers = [];
+  clients = [];
+  contacts = [];
+  tasks = [];
+  interactions = [];
 }
 
 async function loadGristData() {
@@ -313,22 +274,6 @@ async function loadGristData() {
     notes: event.Compte_rendu || ""
   }));
 
-  if (!clients.length && teamMembers.length) {
-    await grist.docApi.applyUserActions([[
-      "AddRecord",
-      TABLES.organisations,
-      null,
-      {
-        Nom: "Nouveau prospect",
-        Typologie: "Prospect",
-        Statut: "Premier contact",
-        Priorite: "Moyenne",
-        Referent: teamMembers[0].name,
-        Montant: 0
-      }
-    ]]);
-    await loadGristData();
-  }
 }
 
 function currentClient() {
@@ -352,6 +297,10 @@ function renderClientList() {
   const visibleClients = filteredClients();
   clientCount.textContent = visibleClients.length;
   clientList.innerHTML = "";
+  if (!visibleClients.length) {
+    clientList.innerHTML = '<div class="empty-state"><strong>Aucune fiche CRM</strong><span>Ajoutez des lignes dans CRM_Organisations ou importez vos clients dans Grist.</span></div>';
+    return;
+  }
   visibleClients.forEach((client) => {
     const button = document.createElement("button");
     button.className = `client-button${client.id === activeClientId ? " active" : ""}`;
@@ -373,7 +322,10 @@ function renderClientList() {
 
 function renderDetails() {
   const client = currentClient();
-  if (!client) return;
+  if (!client) {
+    renderEmptyDetails();
+    return;
+  }
   const clientContacts = contacts.filter((contact) => contact.organisationId === client.id);
   const clientTasks = tasks.filter((task) => task.organisationId === client.id && task.status !== "Fait");
   const clientEvents = interactions.filter((event) => event.organisationId === client.id);
@@ -408,6 +360,24 @@ function renderDetails() {
       </div>
     </article>
   `).join("") || '<article class="event"><div class="event-date">-</div><div><h4>Aucun historique</h4><p></p></div></article>';
+}
+
+function renderEmptyDetails() {
+  document.querySelector("#clientType").textContent = "Aucune fiche";
+  document.querySelector("#clientName").textContent = "CRM vide";
+  document.querySelector("#clientStatus").textContent = "En attente";
+  document.querySelector("#clientStatus").dataset.status = "";
+  document.querySelector("#clientPriority").textContent = "-";
+  document.querySelector("#clientOwner").textContent = "-";
+  document.querySelector("#lastContact").textContent = "-";
+  document.querySelector("#nextAction").textContent = "-";
+  document.querySelector("#clientAmount").textContent = formatCurrency(0);
+  document.querySelector("#clientEmail").textContent = "-";
+  document.querySelector("#clientPhone").textContent = "-";
+  document.querySelector("#clientWebsite").textContent = "-";
+  document.querySelector("#taskList").innerHTML = "<li><strong>Aucune tache</strong><span>-</span></li>";
+  document.querySelector("#contactList").innerHTML = "<li><strong>Aucun interlocuteur</strong><span>-</span></li>";
+  document.querySelector("#timeline").innerHTML = '<article class="event"><div class="event-date">-</div><div><h4>Aucune donnee CRM</h4><p>Les tables seront creees automatiquement dans Grist. Les fiches apparaissent quand CRM_Organisations contient des lignes.</p></div></article>';
 }
 
 function renderStats() {
@@ -480,7 +450,7 @@ function renderSettings() {
 
   document.querySelector("#memberSettingsList").innerHTML = teamMembers.map((member) => `
     <li><strong>${member.name}</strong><span>${member.role || "Referent"}<br>${member.email || "-"}</span></li>
-  `).join("");
+  `).join("") || '<li><strong>Aucun referent</strong><span>Dans Grist, ajoutez un membre depuis ce formulaire pour remplir CRM_Referents.</span></li>';
 }
 
 function renderDashboard() {
@@ -542,7 +512,9 @@ function renderFilters() {
 }
 
 function render() {
-  if (!activeClientId && clients.length) activeClientId = clients[0].id;
+  if (!clients.some((client) => client.id === activeClientId)) {
+    activeClientId = clients[0]?.id || null;
+  }
   renderFilters();
   renderClientList();
   renderDetails();
@@ -695,6 +667,8 @@ memberForm.addEventListener("submit", async (event) => {
 async function init() {
   isGrist = insideGrist() && window.grist && grist.docApi;
   if (isGrist) {
+    environmentNotice.hidden = false;
+    environmentNotice.textContent = "Connecte a Grist : les tables CRM_* sont verifiees et creees automatiquement si besoin.";
     await grist.ready({ requiredAccess: "full" });
     await ensureCrmTables();
     await loadGristData();
@@ -702,13 +676,17 @@ async function init() {
       grist.onRecords(() => reloadAndRender());
     }
   } else {
-    loadMockData();
+    environmentNotice.hidden = false;
+    environmentNotice.textContent = "Apercu hors Grist : aucune table n'est creee ici. Ajoutez cette URL comme widget Custom dans Grist avec Full document access.";
+    loadLocalEmptyState();
   }
   render();
 }
 
 init().catch((error) => {
   console.error(error);
-  loadMockData();
+  environmentNotice.hidden = false;
+  environmentNotice.textContent = "Le widget n'a pas pu se connecter a Grist. Verifiez que l'URL est ajoutee comme widget Custom avec Full document access.";
+  loadLocalEmptyState();
   render();
 });

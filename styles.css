@@ -220,6 +220,31 @@ h3 {
   display: block;
 }
 
+.environment-notice {
+  margin: 0 0 18px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.empty-state {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 24px;
+  color: var(--muted);
+}
+
+.empty-state strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ink);
+}
+
 .detail-header {
   margin-bottom: 14px;
 }

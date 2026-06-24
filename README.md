@@ -11,6 +11,8 @@ Widget CRM minimal pour Grist.
 
 Au premier lancement, le widget cree automatiquement les tables `CRM_*`.
 
+Le widget ne cree pas de faux clients. Si `CRM_Organisations` est vide, l'interface reste vide et attend un import ou une saisie dans Grist.
+
 ## Fonctionnalites V1
 
 - fiche client/prospect ;
@@ -37,4 +39,4 @@ Au premier lancement, le widget cree automatiquement les tables `CRM_*`.
 
 ## Important
 
-Le widget peut fonctionner en apercu local avec des donnees de demonstration, mais il ne lit/ecrit dans Grist que lorsqu'il est ouvert comme widget Grist.
+Ouvert hors Grist, le widget affiche seulement un apercu vide et un message d'information. Les tables ne sont creees que lorsqu'il est ouvert comme widget Grist avec `Full document access`.
