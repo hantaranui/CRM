@@ -16,6 +16,7 @@ Le widget ne cree pas de faux clients. Si `CRM_Organisations` est vide, l'interf
 ## Fonctionnalites V1
 
 - fiche client/prospect ;
+- formulaire de creation de fiche dans `CRM_Organisations` ;
 - pipeline Kanban ;
 - dashboard de chiffres cles ;
 - historique ;

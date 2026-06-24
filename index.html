@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <title>CRM</title>
     <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-    <link rel="stylesheet" href="styles.css?v=no-demo-20260624-c">
+    <link rel="stylesheet" href="styles.css?v=no-demo-20260624-e">
   </head>
   <body>
     <main class="crm-shell">
@@ -339,10 +339,24 @@
                 </label>
                 <label>
                   <span>Role</span>
-                  <input id="memberRole" type="text" placeholder="Commercial, direction, support">
+                  <select id="memberRole"></select>
                 </label>
                 <button class="primary-button" type="submit">Ajouter a l'equipe</button>
               </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title">
+                <h3>Roles d'equipe</h3>
+              </div>
+              <form class="settings-form" id="roleForm">
+                <label>
+                  <span>Nouveau role</span>
+                  <input id="roleName" type="text" placeholder="Ex. Direction, SAV, Partenaire">
+                </label>
+                <button class="primary-button" type="submit">Ajouter le role</button>
+              </form>
+              <ul class="settings-list" id="roleSettingsList"></ul>
             </section>
 
             <section class="panel">
@@ -356,6 +370,6 @@
       </section>
     </main>
 
-    <script src="widget.js?v=no-demo-20260624-c"></script>
+    <script src="widget.js?v=no-demo-20260624-e"></script>
   </body>
 </html>
