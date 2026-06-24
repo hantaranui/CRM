@@ -11,7 +11,7 @@ const TABLES = {
   config: "CRM_Config"
 };
 
-const BUILD_VERSION = "crm-widget-no-demo-20260624-e";
+const BUILD_VERSION = "crm-widget-no-demo-20260624-f";
 
 const DEFAULT_STAGES = [
   { Nom: "Premier contact", Ordre: 1, Couleur: "#6366f1", Declenche_relance: false, Actif: true },
@@ -144,9 +144,9 @@ async function modifyColumn(tableName, columnId, spec) {
 async function seedIfEmpty(tableName, rows) {
   const existing = await safeFetchTable(tableName);
   if (existing.length || !rows.length) return;
-  await grist.docApi.applyUserActions([
-    ["BulkAddRecord", tableName, rows.map(() => null), rows]
-  ]);
+  await grist.docApi.applyUserActions(
+    rows.map((row) => ["AddRecord", tableName, null, row])
+  );
 }
 
 async function ensureCrmTables() {
