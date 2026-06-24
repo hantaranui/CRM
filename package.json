@@ -1,0 +1,16 @@
+{
+  "name": "crm-grist-widget",
+  "version": "0.1.0",
+  "description": "Widget CRM pour Grist avec creation automatique des tables",
+  "scripts": {
+    "dev": "python3 -m http.server 8765"
+  },
+  "grist": {
+    "name": "CRM",
+    "widgetId": "crm-grist-widget",
+    "published": false,
+    "accessLevel": "full",
+    "renderAfterReady": true,
+    "description": "CRM leger avec pipeline, equipe, relances et historique."
+  }
+}

@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CRM</title>
+    <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="crm-shell">
+      <section class="sidebar" aria-label="Clients">
+        <div class="brand-row">
+          <div>
+            <h1>CRM</h1>
+          </div>
+          <span class="count" id="clientCount">0</span>
+        </div>
+
+        <label class="search">
+          <span>Recherche</span>
+          <input id="searchInput" type="search" placeholder="Client, statut, email">
+        </label>
+
+        <div class="filters" aria-label="Filtres">
+          <button class="filter active" data-filter="Tous" type="button">Tous</button>
+          <button class="filter" data-filter="A relancer" type="button">A relancer</button>
+          <button class="filter" data-filter="Contrat signe" type="button">Signes</button>
+        </div>
+
+        <div class="client-list" id="clientList"></div>
+      </section>
+
+      <section class="detail" aria-label="Fiche client">
+        <nav class="view-tabs" aria-label="Navigation CRM">
+          <button class="view-tab active" data-view="crm" type="button">CRM</button>
+          <button class="view-tab" data-view="dashboard" type="button">Dashboard</button>
+          <button class="view-tab" data-view="settings" type="button">Parametres</button>
+        </nav>
+
+        <div class="view-panel active" id="crmView">
+        <div class="detail-header">
+          <div>
+            <p class="eyebrow" id="clientType">Prospect</p>
+            <h2 id="clientName">Client</h2>
+          </div>
+          <span class="status" id="clientStatus">Statut</span>
+        </div>
+
+        <div class="actions" aria-label="Actions rapides">
+          <button class="primary-button" id="addDemoInteraction" type="button">Ajouter une note</button>
+          <button class="ghost-button" id="advanceStatus" type="button">Avancer le statut</button>
+          <button class="ghost-button" id="createTask" type="button">Creer une tache</button>
+        </div>
+
+        <section class="stats-strip" aria-label="Statistiques CRM">
+          <div>
+            <span>Prospects</span>
+            <strong id="statProspects">0</strong>
+          </div>
+          <div>
+            <span>A relancer</span>
+            <strong id="statFollowups">0</strong>
+          </div>
+          <div>
+            <span>Pipeline</span>
+            <strong id="statPipeline">0 EUR</strong>
+          </div>
+          <div>
+            <span>CA clients</span>
+            <strong id="statRevenue">0 EUR</strong>
+          </div>
+        </section>
+
+        <div class="summary-grid">
+          <div class="summary-item">
+            <span>Priorite</span>
+            <strong id="clientPriority">-</strong>
+          </div>
+          <div class="summary-item">
+            <span>Responsable</span>
+            <strong id="clientOwner">-</strong>
+          </div>
+          <div class="summary-item">
+            <span>Dernier contact</span>
+            <strong id="lastContact">-</strong>
+          </div>
+          <div class="summary-item">
+            <span>Prochaine action</span>
+            <strong id="nextAction">-</strong>
+          </div>
+          <div class="summary-item">
+            <span>Montant associe</span>
+            <strong id="clientAmount">-</strong>
+          </div>
+        </div>
+
+        <div class="content-grid">
+          <section class="panel">
+            <div class="panel-title">
+              <h3>Coordonnees</h3>
+            </div>
+            <dl class="fields">
+              <div>
+                <dt>Email</dt>
+                <dd id="clientEmail">-</dd>
+              </div>
+              <div>
+                <dt>Telephone</dt>
+                <dd id="clientPhone">-</dd>
+              </div>
+              <div>
+                <dt>Site</dt>
+                <dd id="clientWebsite">-</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title">
+              <h3>Taches ouvertes</h3>
+            </div>
+            <ul class="tasks" id="taskList"></ul>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title">
+              <h3>Interlocuteurs</h3>
+            </div>
+            <ul class="contacts" id="contactList"></ul>
+          </section>
+        </div>
+
+        <section class="panel pipeline-panel">
+          <div class="panel-title">
+            <h3>Pipeline</h3>
+          </div>
+          <div class="pipeline" id="pipeline"></div>
+        </section>
+
+        <section class="panel timeline-panel">
+          <div class="panel-title">
+            <h3>Historique</h3>
+          </div>
+          <div class="timeline" id="timeline"></div>
+        </section>
+        </div>
+
+        <div class="view-panel" id="dashboardView">
+          <div class="detail-header">
+            <div>
+              <p class="eyebrow">Chiffres cles</p>
+              <h2>Dashboard</h2>
+            </div>
+            <span class="status">Synthese CRM</span>
+          </div>
+
+          <section class="dashboard-grid" aria-label="Chiffres cles CRM">
+            <div class="dashboard-card">
+              <span>Total fiches</span>
+              <strong id="dashTotal">0</strong>
+            </div>
+            <div class="dashboard-card">
+              <span>Prospects</span>
+              <strong id="dashProspects">0</strong>
+            </div>
+            <div class="dashboard-card">
+              <span>Clients</span>
+              <strong id="dashClients">0</strong>
+            </div>
+            <div class="dashboard-card">
+              <span>A relancer</span>
+              <strong id="dashFollowups">0</strong>
+            </div>
+            <div class="dashboard-card">
+              <span>Pipeline prospect</span>
+              <strong id="dashPipeline">0 EUR</strong>
+            </div>
+            <div class="dashboard-card">
+              <span>CA signe</span>
+              <strong id="dashRevenue">0 EUR</strong>
+            </div>
+            <div class="dashboard-card">
+              <span>Taches ouvertes</span>
+              <strong id="dashOpenTasks">0</strong>
+            </div>
+            <div class="dashboard-card">
+              <span>Interlocuteurs</span>
+              <strong id="dashContacts">0</strong>
+            </div>
+          </section>
+
+          <div class="dashboard-layout">
+            <section class="panel">
+              <div class="panel-title">
+                <h3>Pipeline par etape</h3>
+              </div>
+              <div class="stage-bars" id="dashboardStageBars"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title">
+                <h3>Equipe</h3>
+              </div>
+              <div class="dashboard-list" id="dashboardTeam"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title">
+                <h3>Alertes</h3>
+              </div>
+              <div class="dashboard-list" id="dashboardAlerts"></div>
+            </section>
+          </div>
+        </div>
+
+        <div class="view-panel" id="settingsView">
+          <div class="detail-header">
+            <div>
+              <p class="eyebrow">Configuration</p>
+              <h2>Parametres</h2>
+            </div>
+            <span class="status">CRM_Etapes</span>
+          </div>
+
+          <div class="settings-grid">
+            <section class="panel">
+              <div class="panel-title">
+                <h3>Etapes Kanban</h3>
+              </div>
+              <form class="settings-form" id="stageForm">
+                <label>
+                  <span>Nom de l'etape</span>
+                  <input id="stageName" type="text" placeholder="Ex. Devis envoye">
+                </label>
+                <label>
+                  <span>Couleur</span>
+                  <input id="stageColor" type="color" value="#315f8c">
+                </label>
+                <label class="checkbox-row">
+                  <input id="stageFollowup" type="checkbox">
+                  <span>Cette etape declenche une relance</span>
+                </label>
+                <button class="primary-button" type="submit">Ajouter l'etape</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title">
+                <h3>Etapes actives</h3>
+              </div>
+              <ul class="settings-list" id="stageSettingsList"></ul>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title">
+                <h3>Tables pilotees</h3>
+              </div>
+              <ul class="settings-list">
+                <li><strong>CRM_Etapes</strong><span>Colonnes du Kanban</span></li>
+                <li><strong>CRM_Priorites</strong><span>Niveaux basse, moyenne, haute</span></li>
+                <li><strong>CRM_Referents</strong><span>Responsables et personnes de l'equipe</span></li>
+                <li><strong>CRM_Config</strong><span>Mapping des tables et colonnes</span></li>
+              </ul>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title">
+                <h3>Equipe</h3>
+              </div>
+              <form class="settings-form" id="memberForm">
+                <label>
+                  <span>Nom</span>
+                  <input id="memberName" type="text" placeholder="Ex. Nina Martin">
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input id="memberEmail" type="email" placeholder="nina@example.com">
+                </label>
+                <label>
+                  <span>Role</span>
+                  <input id="memberRole" type="text" placeholder="Commercial, direction, support">
+                </label>
+                <button class="primary-button" type="submit">Ajouter a l'equipe</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title">
+                <h3>Referents actifs</h3>
+              </div>
+              <ul class="settings-list" id="memberSettingsList"></ul>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="widget.js"></script>
+  </body>
+</html>
